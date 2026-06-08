@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星序 StarOrder - 星空专注</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg-deep: #0a0e1a;
+    --bg-card: rgba(16, 22, 40, 0.75);
+    --accent-cyan: #4ecdc4;
+    --accent-silver: #c0c8d8;
+    --text-primary: #e0e6f0;
+    --text-secondary: #8892a8;
+    --glow-cyan: rgba(78, 205, 196, 0.4);
+    --glow-warm: rgba(255, 180, 80, 0.5);
+    --radius: 16px;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+  #starfield {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0; pointer-events: none;
+  }
+  .scene {
+    position: relative; z-index: 1;
+    max-width: 520px; margin: 0 auto;
+    padding: 24px 20px 40px;
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+    min-height: 100vh;
+  }
+  .header { text-align: center; margin-bottom: 4px; }
+  .header h1 { font-size: 28px; font-weight: 300; letter-spacing: 6px; color: var(--accent-silver); margin-bottom: 2px; }
+  .header .subtitle { font-size: 13px; color: var(--text-secondary); letter-spacing: 2px; }
+
+  /* 飞船区域 */
+  .ship-area {
+    width: 100%; height: 140px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-end;
+    margin: 4px 0; position: relative;
+  }
+  .task-label {
+    font-size: 12px; color: var(--accent-cyan);
+    letter-spacing: 2px; margin-bottom: 6px;
+    max-width: 200px; text-align: center;
+    opacity: 0; transition: opacity 0.3s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .task-label.visible { opacity: 0.8; }
+  .spaceship {
+    width: 64px; height: 64px;
+    animation: float 4s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  /* 计时器 */
+  .timer-wrap { text-align: center; margin: 4px 0 12px; }
+  .timer-mode-tabs {
+    display: inline-flex; gap: 8px; margin-bottom: 10px;
+    background: rgba(255,255,255,0.05); border-radius: 24px; padding: 4px;
+  }
+  .timer-mode-tabs button {
+    background: transparent; border: none; color: var(--text-secondary);
+    font-size: 13px; padding: 6px 16px; border-radius: 20px; cursor: pointer; transition: all 0.3s;
+  }
+  .timer-mode-tabs button.active { background: rgba(78, 205, 196, 0.15); color: var(--accent-cyan); }
+  .timer-display {
+    font-size: 64px; font-weight: 200; letter-spacing: 4px;
+    color: var(--accent-cyan); text-shadow: 0 0 30px var(--glow-cyan);
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .timer-controls { display: flex; gap: 12px; justify-content: center; margin-top: 14px; }
+  .btn-primary {
+    background: linear-gradient(135deg, rgba(78,205,196,0.2), rgba(78,205,196,0.05));
+    border: 1px solid rgba(78,205,196,0.3); color: var(--accent-cyan);
+    padding: 10px 36px; border-radius: 28px; font-size: 15px; cursor: pointer;
+    transition: all 0.3s; backdrop-filter: blur(8px);
+  }
+  .btn-primary:hover { background: rgba(78,205,196,0.25); box-shadow: 0 0 20px var(--glow-cyan); }
+  .btn-secondary {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-secondary); padding: 10px 28px; border-radius: 28px;
+    font-size: 15px; cursor: pointer; transition: all 0.3s;
+  }
+  .btn-secondary:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+
+  /* 星球系统 */
+  .planet-system { width: 100%; position: relative; margin: 12px 0; }
+  .planet-label {
+    text-align: center; font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; letter-spacing: 3px;
+  }
+  .planet-label .planet-name { color: var(--accent-cyan); font-weight: 400; }
+  .orbit-canvas-container { position: relative; width: 100%; height: 340px; }
+  #orbitCanvas { width: 100%; height: 100%; }
+
+  /* 任务输入 */
+  .task-wrap { width: 100%; margin: 8px 0; }
+  .task-input {
+    width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px; padding: 12px 16px; color: var(--text-primary); font-size: 14px;
+    outline: none; transition: all 0.3s;
+  }
+  .task-input::placeholder { color: var(--text-secondary); }
+  .task-input:focus { border-color: rgba(78,205,196,0.3); background: rgba(78,205,196,0.04); }
+
+  .bottom-actions {
+    width: 100%; display: flex; align-items: center; justify-content: space-between;
+    margin-top: 12px; padding: 0 4px;
+  }
+  .mini-stats { font-size: 12px; color: var(--text-secondary); }
+  .mini-stats span { color: var(--accent-cyan); }
+  .icon-btn {
+    background: transparent; border: none; color: var(--text-secondary);
+    font-size: 13px; cursor: pointer; padding: 6px 12px; border-radius: 8px; transition: all 0.3s;
+  }
+  .icon-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+
+  .settings-panel {
+    width: 100%; max-height: 0; overflow: hidden;
+    transition: max-height 0.4s ease, opacity 0.3s ease; opacity: 0; margin-top: 0;
+  }
+  .settings-panel.open { max-height: 300px; opacity: 1; margin-top: 12px; }
+  .settings-inner {
+    background: var(--bg-card); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--radius); padding: 16px; backdrop-filter: blur(12px);
+  }
+  .setting-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label { font-size: 13px; color: var(--text-secondary); }
+  .setting-input {
+    width: 60px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px; padding: 4px 8px; color: var(--text-primary); font-size: 13px; text-align: center;
+  }
+
+  /* 弹窗通用 */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7); z-index: 100; display: none;
+    align-items: center; justify-content: center; backdrop-filter: blur(8px);
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-content {
+    background: var(--bg-card); border: 1px solid rgba(78,205,196,0.15);
+    border-radius: var(--radius); padding: 32px; max-width: 360px; width: 90%;
+    text-align: center; animation: modalIn 0.4s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .modal-planet-visual { width: 120px; height: 120px; margin: 0 auto 20px; }
+  .modal-title { font-size: 20px; color: var(--accent-cyan); margin-bottom: 8px; letter-spacing: 2px; }
+  .modal-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 20px; }
+  .modal-btn {
+    background: rgba(78,205,196,0.15); border: 1px solid rgba(78,205,196,0.3);
+    color: var(--accent-cyan); padding: 10px 32px; border-radius: 24px; font-size: 14px;
+    cursor: pointer; transition: all 0.3s;
+  }
+  .modal-btn:hover { background: rgba(78,205,196,0.25); }
+
+  /* 星图弹窗 - 分阶段 */
+  .galaxy-modal-content {
+    background: rgba(10, 14, 26, 0.95); border: 1px solid rgba(78,205,196,0.12);
+    border-radius: var(--radius); padding: 24px 20px; max-width: 480px; width: 92%;
+    animation: modalIn 0.4s ease;
+    backdrop-filter: blur(20px);
+    max-height: 85vh;
+    overflow-y: auto;
+    position: relative;
+  }
+  .galaxy-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .galaxy-title { font-size: 18px; color: var(--accent-silver); letter-spacing: 3px; font-weight: 300; }
+  .galaxy-phase-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .galaxy-phase-tab {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--text-secondary);
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 1px;
+  }
+  .galaxy-phase-tab.active {
+    background: rgba(78,205,196,0.12);
+    border-color: rgba(78,205,196,0.25);
+    color: var(--accent-cyan);
+  }
+  .galaxy-phase-tab.locked {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .galaxy-phase-info {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+  }
+  .galaxy-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .galaxy-planet-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 4px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    background: rgba(255,255,255,0.02);
+  }
+  .galaxy-planet-card:hover { background: rgba(255,255,255,0.05); }
+  .galaxy-planet-card canvas { border-radius: 50%; }
+  .galaxy-planet-card .gp-name {
+    font-size: 11px;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+  }
+  .galaxy-planet-card.locked {
+    opacity: 0.35;
+    pointer-events: none;
+    background: transparent;
+  }
+  .galaxy-planet-card.locked canvas { filter: grayscale(80%) brightness(0.5); }
+  .galaxy-planet-card .gp-status {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 10px;
+  }
+  .galaxy-planet-card:not(.locked) .gp-status { color: var(--accent-cyan); }
+
+  /* 返回按钮 */
+  .galaxy-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    background: rgba(78,205,196,0.08);
+    border: 1px solid rgba(78,205,196,0.15);
+    color: var(--accent-cyan);
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 2px;
+    margin-top: 4px;
+  }
+  .galaxy-back-btn:hover {
+    background: rgba(78,205,196,0.15);
+    border-color: rgba(78,205,196,0.3);
+  }
+  .galaxy-back-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+
+  /* 阶段完成提示 */
+  .phase-complete-banner {
+    background: linear-gradient(90deg, rgba(78,205,196,0.1), rgba(78,205,196,0.05));
+    border: 1px solid rgba(78,205,196,0.15);
+    border-radius: 10px;
+    padding: 10px 16px;
+    text-align: center;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--accent-cyan);
+    letter-spacing: 1px;
+    display: none;
+  }
+  .phase-complete-banner.show { display: block; }
+</style>
+</head>
+<body>
+<canvas id="starfield"></canvas>
+
+<div class="scene">
+  <div class="header">
+    <h1>星序</h1>
+    <div class="subtitle">遨游星空，专注此刻</div>
+  </div>
+
+  <div class="ship-area">
+    <div class="task-label" id="taskLabel"></div>
+    <svg class="spaceship" viewBox="0 0 64 64" fill="none">
+      <path d="M32 8 L40 28 L38 48 L32 52 L26 48 L24 28 Z" fill="url(#shipGrad)" stroke="rgba(192,200,216,0.4)" stroke-width="1"/>
+      <ellipse cx="32" cy="26" rx="5" ry="7" fill="rgba(78,205,196,0.3)" stroke="rgba(78,205,196,0.5)" stroke-width="0.8"/>
+      <path d="M24 32 L12 42 L14 46 L26 38 Z" fill="rgba(192,200,216,0.2)" stroke="rgba(192,200,216,0.3)" stroke-width="0.6"/>
+      <path d="M40 32 L52 42 L50 46 L38 38 Z" fill="rgba(192,200,216,0.2)" stroke="rgba(192,200,216,0.3)" stroke-width="0.6"/>
+      <ellipse cx="32" cy="50" rx="4" ry="2" fill="rgba(78,205,196,0.5)"/>
+      <ellipse cx="32" cy="53" rx="2.5" ry="1.2" fill="rgba(78,205,196,0.3)"/>
+      <defs>
+        <linearGradient id="shipGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(192,200,216,0.3)"/>
+          <stop offset="100%" stop-color="rgba(100,110,140,0.2)"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  </div>
+
+  <div class="timer-wrap">
+    <div class="timer-mode-tabs">
+      <button class="active" data-mode="focus">专注</button>
+      <button data-mode="short">短休息</button>
+      <button data-mode="long">长休息</button>
+    </div>
+    <div class="timer-display" id="timerDisplay">25:00</div>
+    <div class="timer-controls">
+      <button class="btn-primary" id="startBtn">开始</button>
+      <button class="btn-secondary" id="resetBtn">重置</button>
+    </div>
+  </div>
+
+  <div class="planet-system">
+    <div class="planet-label">
+      当前星系：<span class="planet-name" id="currentPlanetName">水星</span>
+      <span style="margin-left:12px;color:var(--text-secondary);">节点 <span id="litCount">0</span>/8</span>
+    </div>
+    <div class="orbit-canvas-container">
+      <canvas id="orbitCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="task-wrap">
+    <input type="text" class="task-input" id="taskInput" placeholder="输入本次专注任务...">
+  </div>
+
+  <div class="bottom-actions">
+    <button class="icon-btn" id="galaxyBtn">🌌 星图</button>
+    <div class="mini-stats">今日 <span id="todayMin">0</span> 分 · 累计 <span id="totalMin">0</span> 分</div>
+    <button class="icon-btn" id="settingsToggle">⚙ 设置</button>
+  </div>
+
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-inner">
+      <div class="setting-row">
+        <span class="setting-label">专注时长（分钟）</span>
+        <input type="number" class="setting-input" id="focusTime" value="25" min="1" max="120">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">短休息（分钟）</span>
+        <input type="number" class="setting-input" id="shortTime" value="5" min="1" max="60">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">长休息（分钟）</span>
+        <input type="number" class="setting-input" id="longTime" value="15" min="1" max="60">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 星球解锁弹窗 -->
+<div class="modal-overlay" id="planetModal">
+  <div class="modal-content">
+    <canvas class="modal-planet-visual" id="modalPlanetCanvas" width="240" height="240"></canvas>
+    <div class="modal-title" id="modalPlanetName">星球名称</div>
+    <div class="modal-desc" id="modalPlanetDesc">星球描述</div>
+    <button class="modal-btn" id="modalClose">继续探索</button>
+  </div>
+</div>
+
+<!-- 星图总览弹窗 -->
+<div class="modal-overlay" id="galaxyModal">
+  <div class="galaxy-modal-content">
+    <div class="galaxy-header">
+      <div class="galaxy-title" id="galaxyTitle">🌌 星图</div>
+    </div>
+    <div class="galaxy-phase-tabs" id="galaxyPhaseTabs"></div>
+    <div class="phase-complete-banner" id="phaseCompleteBanner">🎉 本阶段已完成！进入下一阶段继续探索</div>
+    <div class="galaxy-phase-info" id="galaxyPhaseInfo"></div>
+    <div class="galaxy-grid" id="galaxyGrid"></div>
+    <button class="galaxy-back-btn" id="galaxyBackBtn">
+      <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      返回主界面
+    </button>
+  </div>
+</div>
+
+<script>
+// ==================== 数据存储 ====================
+const STORAGE_KEY = 'starorder_space_v3_';
+function loadData() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY + 'data')) || {}; } catch { return {}; }
+}
+function saveData(data) { localStorage.setItem(STORAGE_KEY + 'data', JSON.stringify(data)); }
+let appData = loadData();
+if (typeof appData.planetIndex !== 'number') appData.planetIndex = 0;
+if (typeof appData.nodeProgress !== 'number') appData.nodeProgress = 0;
+if (typeof appData.todayMin !== 'number') appData.todayMin = 0;
+if (typeof appData.totalMin !== 'number') appData.totalMin = 0;
+if (!appData.lastDate) appData.lastDate = new Date().toDateString();
+
+const today = new Date().toDateString();
+if (appData.lastDate !== today) { appData.todayMin = 0; appData.lastDate = today; }
+
+// ==================== 三阶段星图数据 ====================
+const GALAXY_PHASES = [
+  {
+    name: '太阳系',
+    planets: [
+      { name: '水星', desc: '太阳系中最小的行星，表面布满陨石坑，昼夜温差极大。', color: '#a8a0a0', secondary: '#6a6060', type: 'dead', ring: false },
+      { name: '金星', desc: '被厚厚的大气层包裹，表面温度极高，如同炼狱。', color: '#e8c860', secondary: '#c49030', type: 'lava', ring: false },
+      { name: '地球', desc: '我们唯一的家园，蓝色的海洋与绿色的大陆交织。', color: '#4a90c8', secondary: '#2a6080', type: 'ocean', ring: false },
+      { name: '火星', desc: '红色的沙漠星球，拥有太阳系最高的山峰和最大的峡谷。', color: '#c86040', secondary: '#8a3020', type: 'lava', ring: false },
+      { name: '木星', desc: '太阳系最大的行星，巨大的风暴红斑已持续数百年。', color: '#c8a070', secondary: '#8a6030', type: 'gas', ring: true },
+      { name: '土星', desc: '拥有壮观光环的气态巨行星，密度甚至比水还小。', color: '#d8c8a0', secondary: '#a09060', type: 'gas', ring: true },
+      { name: '天王星', desc: '一颗侧躺着旋转的冰巨星，呈现神秘的青蓝色。', color: '#7ec8d8', secondary: '#4a90a0', type: 'ice', ring: true },
+      { name: '海王星', desc: '太阳系最远的行星，拥有最强烈的风暴和深邃的蓝色。', color: '#4a6ac8', secondary: '#2a4080', type: 'ice', ring: false },
+    ]
+  },
+  {
+    name: '外层太阳系',
+    planets: [
+      { name: '冥王星', desc: '曾经的第九大行星，冰冷的矮行星，拥有五颗卫星。', color: '#b8a890', secondary: '#786850', type: 'ice', ring: false },
+      { name: '谷神星', desc: '小行星带中最大的天体，可能拥有地下海洋。', color: '#a0a0a0', secondary: '#606060', type: 'dead', ring: false },
+      { name: '灶神星', desc: '小行星带中第二大的天体，表面有巨大的撞击坑。', color: '#c8a880', secondary: '#886840', type: 'dead', ring: false },
+      { name: '智神星', desc: '小行星带中第三大的天体，形状不规则，表面布满陨石坑。', color: '#b0b0b0', secondary: '#707070', type: 'dead', ring: false },
+      { name: '阋神星', desc: '比冥王星还重的矮行星，轨道极度倾斜，表面覆盖甲烷冰。', color: '#d0d0d0', secondary: '#909090', type: 'ice', ring: false },
+      { name: '妊神星', desc: '形状像橄榄球的矮行星，拥有两个卫星和稀薄的光环。', color: '#a8c0d0', secondary: '#688090', type: 'ice', ring: true },
+      { name: '鸟神星', desc: '柯伊伯带中的矮行星，表面可能有甲烷和乙烷。', color: '#c8b8a0', secondary: '#887860', type: 'dead', ring: false },
+      { name: '共工星', desc: '柯伊伯带中的大型天体，拥有环系统，距离太阳极远。', color: '#90a8c0', secondary: '#506880', type: 'ice', ring: true },
+    ]
+  },
+  {
+    name: '远域与深空',
+    planets: [
+      { name: '太阳', desc: '太阳系的中心恒星，质量占整个太阳系的99.86%。', color: '#f0d040', secondary: '#c0a020', type: 'lava', ring: false },
+      { name: '月球', desc: '地球唯一的天然卫星，表面布满陨石坑，影响地球的潮汐。', color: '#c0c0c0', secondary: '#808080', type: 'dead', ring: false },
+      { name: '泰坦', desc: '土星最大的卫星，拥有浓厚大气层和液态甲烷湖泊。', color: '#d8a840', secondary: '#987020', type: 'gas', ring: false },
+      { name: '欧罗巴', desc: '木星的冰卫星，冰层下可能存在巨大的液态水海洋。', color: '#a0c8e0', secondary: '#6088a0', type: 'ice', ring: false },
+      { name: '哈雷彗星', desc: '最著名的短周期彗星，每76年回归一次，拖着长长的彗尾。', color: '#80c8e0', secondary: '#4088a0', type: 'ice', ring: false },
+      { name: '小行星带', desc: '火星与木星之间的环状区域，包含数百万颗小行星。', color: '#a89070', secondary: '#685030', type: 'dead', ring: false },
+      { name: '柯伊伯带', desc: '海王星轨道外的环状区域，包含大量冰质天体。', color: '#7090b0', secondary: '#305070', type: 'ice', ring: false },
+      { name: '奥尔特云', desc: '太阳系最外层的球状云团，是长周期彗星的来源地。', color: '#6080a0', secondary: '#204060', type: 'dark', ring: false },
+      { name: '猎户座星云', desc: '距离地球最近的恒星形成区，肉眼可见的巨大星云。', color: '#e08060', secondary: '#a04020', type: 'gas', ring: false },
+      { name: '昴星团', desc: '著名的疏散星团，包含数千颗恒星，被称为七姐妹星团。', color: '#80a0e0', secondary: '#4060a0', type: 'crystal', ring: false },
+      { name: '北极星', desc: '小熊座最亮的恒星，几乎正对地球北极，是导航的重要标志。', color: '#f0f0e0', secondary: '#b0b0a0', type: 'crystal', ring: false },
+      { name: '织女星', desc: '天琴座最亮的恒星，夏季大三角的一角，曾是人类文明的北极星。', color: '#c0d0f0', secondary: '#8090b0', type: 'crystal', ring: false },
+      { name: '天狼星', desc: '夜空中最亮的恒星，位于大犬座，距离地球仅8.6光年。', color: '#a0c8f0', secondary: '#6088b0', type: 'crystal', ring: false },
+      { name: '比邻星', desc: '距离太阳最近的恒星，位于半人马座，距离仅4.24光年。', color: '#f0c060', secondary: '#b08020', type: 'lava', ring: false },
+      { name: '半人马座α', desc: '三合星系统，包含比邻星，是距离太阳最近的恒星系统。', color: '#e0b050', secondary: '#a07020', type: 'crystal', ring: false },
+      { name: '银河边缘', desc: '银河系的边缘地带，恒星稀疏，是探索宇宙的终极边界。', color: '#8060c0', secondary: '#402080', type: 'dark', ring: false },
+    ]
+  }
+];
+
+// 计算当前阶段索引（基于 planetIndex）
+function getCurrentPhaseIndex() {
+  let count = 0;
+  for (let i = 0; i < GALAXY_PHASES.length; i++) {
+    count += GALAXY_PHASES[i].planets.length;
+    if (appData.planetIndex < count) return i;
+  }
+  return GALAXY_PHASES.length - 1;
+}
+
+function getCurrentPhase() {
+  return GALAXY_PHASES[getCurrentPhaseIndex()];
+}
+
+function getCurrentPlanet() {
+  const phaseIdx = getCurrentPhaseIndex();
+  let offset = 0;
+  for (let i = 0; i < phaseIdx; i++) offset += GALAXY_PHASES[i].planets.length;
+  const planetIdxInPhase = appData.planetIndex - offset;
+  return GALAXY_PHASES[phaseIdx].planets[planetIdxInPhase] || GALAXY_PHASES[phaseIdx].planets[0];
+}
+
+function getAllPlanets() {
+  return GALAXY_PHASES.flatMap(p => p.planets);
+}
+
+// 获取某阶段是否已解锁
+function isPhaseUnlocked(phaseIndex) {
+  if (phaseIndex === 0) return true;
+  let planetsBefore = 0;
+  for (let i = 0; i < phaseIndex; i++) planetsBefore += GALAXY_PHASES[i].planets.length;
+  return appData.planetIndex >= planetsBefore;
+}
+
+// 获取某阶段是否已完成
+function isPhaseCompleted(phaseIndex) {
+  let planetsBefore = 0;
+  for (let i = 0; i <= phaseIndex; i++) planetsBefore += GALAXY_PHASES[i].planets.length;
+  return appData.planetIndex >= planetsBefore;
+}
+
+// ==================== 星空背景 ====================
+const starCanvas = document.getElementById('starfield');
+const starCtx = starCanvas.getContext('2d');
+let stars = [];
+function initStars() {
+  starCanvas.width = window.innerWidth; starCanvas.height = window.innerHeight; stars = [];
+  const count = Math.floor((starCanvas.width * starCanvas.height) / 3000);
+  for (let i = 0; i < count; i++) {
+    stars.push({
+      x: Math.random() * starCanvas.width, y: Math.random() * starCanvas.height,
+      size: Math.random() * 1.5 + 0.3, alpha: Math.random() * 0.6 + 0.2,
+      twinkleSpeed: Math.random() * 0.02 + 0.005, twinkleOffset: Math.random() * Math.PI * 2
+    });
+  }
+}
+function drawStars() {
+  starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+  const t = Date.now() * 0.001;
+  stars.forEach(s => {
+    const alpha = s.alpha + Math.sin(t * s.twinkleSpeed * 50 + s.twinkleOffset) * 0.15;
+    starCtx.beginPath(); starCtx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    starCtx.fillStyle = `rgba(200,210,230,${Math.max(0.1, alpha)})`; starCtx.fill();
+  });
+  requestAnimationFrame(drawStars);
+}
+initStars(); drawStars();
+window.addEventListener('resize', initStars);
+
+// ==================== 星球连线系统 ====================
+const orbitCanvas = document.getElementById('orbitCanvas');
+const orbitCtx = orbitCanvas.getContext('2d');
+
+function resizeOrbitCanvas() {
+  const rect = orbitCanvas.parentElement.getBoundingClientRect();
+  orbitCanvas.width = rect.width * 2; orbitCanvas.height = rect.height * 2;
+  orbitCanvas.style.width = rect.width + 'px'; orbitCanvas.style.height = rect.height + 'px';
+  orbitCtx.scale(2, 2);
+}
+resizeOrbitCanvas();
+window.addEventListener('resize', resizeOrbitCanvas);
+
+// 散落式节点位置
+function getNodePositions(cx, cy, w, h) {
+  const offsets = [
+    { dx: -0.35, dy: -0.28, size: 1.0 },
+    { dx: -0.05, dy: -0.38, size: 1.1 },
+    { dx: 0.30, dy: -0.22, size: 0.9 },
+    { dx: 0.38, dy: 0.08, size: 1.0 },
+    { dx: 0.25, dy: 0.32, size: 1.15 },
+    { dx: -0.08, dy: 0.36, size: 0.95 },
+    { dx: -0.32, dy: 0.18, size: 1.05 },
+    { dx: -0.38, dy: -0.08, size: 0.9 },
+  ];
+  return offsets.map(o => ({
+    x: cx + o.dx * w * 0.43,
+    y: cy + o.dy * h * 0.40,
+    size: o.size
+  }));
+}
+
+function drawPlanetNode(ctx, x, y, baseRadius, lit, planet, index) {
+  const r = baseRadius * 3.5;
+  const color = planet.color;
+  const secondary = planet.secondary;
+  const type = planet.type;
+
+  if (lit && planet.ring) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(x, y, r * 1.8, r * 0.35, 0.15 * Math.PI, 0, Math.PI * 2);
+    ctx.strokeStyle = color + '40'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(x, y, r * 1.5, r * 0.28, 0.15 * Math.PI, 0, Math.PI * 2);
+    ctx.strokeStyle = color + '25'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.restore();
+  }
+
+  if (lit) {
+    const glow = ctx.createRadialGradient(x, y, r * 0.4, x, y, r * 2.2);
+    glow.addColorStop(0, color + '50');
+    glow.addColorStop(0.5, color + '15');
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(x, y, r * 2.2, 0, Math.PI * 2); ctx.fill();
+  }
+
+  const grad = ctx.createRadialGradient(x - r * 0.28, y - r * 0.28, r * 0.05, x, y, r);
+  if (lit) {
+    grad.addColorStop(0, color);
+    grad.addColorStop(0.25, color);
+    grad.addColorStop(0.55, secondary);
+    grad.addColorStop(0.85, secondary + '99');
+    grad.addColorStop(1, 'rgba(20,25,40,0.6)');
+  } else {
+    grad.addColorStop(0, 'rgba(55,60,75,0.5)');
+    grad.addColorStop(0.5, 'rgba(40,45,60,0.4)');
+    grad.addColorStop(1, 'rgba(20,25,35,0.3)');
+  }
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = grad; ctx.fill();
+
+  if (lit) {
+    ctx.save();
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip();
+
+    if (type === 'crystal') {
+      for (let i = 0; i < 5; i++) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(x - r + i * r * 0.45, y - r * 0.6);
+        ctx.lineTo(x + r * 0.3, y + r * 0.6); ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.beginPath(); ctx.arc(x - r * 0.25, y - r * 0.35, r * 0.2, 0, Math.PI * 2); ctx.fill();
+    } else if (type === 'lava') {
+      ctx.strokeStyle = 'rgba(255,200,60,0.45)'; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(x - r * 0.6, y + r * 0.3);
+      ctx.quadraticCurveTo(x - r * 0.1, y - r * 0.4, x + r * 0.4, y + r * 0.2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,160,30,0.3)'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x - r * 0.4, y + r * 0.5);
+      ctx.quadraticCurveTo(x + r * 0.1, y - r * 0.1, x + r * 0.5, y + r * 0.4); ctx.stroke();
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.beginPath(); ctx.arc(x + r * 0.3, y - r * 0.3, r * 0.25, 0, Math.PI * 2); ctx.fill();
+    } else if (type === 'ice') {
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.beginPath(); ctx.ellipse(x, y - r * 0.35, r * 0.7, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.beginPath(); ctx.ellipse(x - r * 0.2, y - r * 0.2, r * 0.35, r * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(180,220,255,0.3)'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x - r * 0.5, y - r * 0.1);
+      ctx.lineTo(x + r * 0.3, y + r * 0.3); ctx.stroke();
+    } else if (type === 'gas') {
+      for (let i = -2; i <= 2; i++) {
+        ctx.strokeStyle = i === 0 ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = i === 0 ? 2.5 : 1.8;
+        ctx.beginPath();
+        ctx.ellipse(x, y + i * r * 0.2, r * 0.92, r * 0.12, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(255,150,150,0.2)';
+      ctx.beginPath(); ctx.ellipse(x + r * 0.2, y - r * 0.1, r * 0.22, r * 0.13, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (type === 'ocean') {
+      ctx.fillStyle = 'rgba(100,180,140,0.3)';
+      ctx.beginPath(); ctx.ellipse(x - r * 0.2, y - r * 0.15, r * 0.5, r * 0.35, 0.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(100,180,140,0.2)';
+      ctx.beginPath(); ctx.ellipse(x + r * 0.3, y + r * 0.2, r * 0.3, r * 0.25, -0.1, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.ellipse(x, y - r * 0.2, r * 0.7, r * 0.1, 0, 0, Math.PI * 2); ctx.stroke();
+    } else if (type === 'dead') {
+      for (let i = 0; i < 5; i++) {
+        const cx2 = x + (Math.random() - 0.5) * r * 1.4;
+        const cy2 = y + (Math.random() - 0.5) * r * 1.4;
+        const cr = r * 0.1 + Math.random() * r * 0.15;
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.beginPath(); ctx.arc(cx2, cy2, cr, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 0.5;
+        ctx.beginPath(); ctx.arc(cx2, cy2, cr, 0, Math.PI * 2); ctx.stroke();
+      }
+    } else if (type === 'forest') {
+      ctx.fillStyle = 'rgba(30,160,80,0.3)';
+      ctx.beginPath(); ctx.ellipse(x - r * 0.1, y - r * 0.1, r * 0.55, r * 0.4, 0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(30,160,80,0.2)';
+      ctx.beginPath(); ctx.ellipse(x + r * 0.35, y + r * 0.25, r * 0.3, r * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.1)';
+      ctx.beginPath(); ctx.ellipse(x - r * 0.2, y - r * 0.4, r * 0.4, r * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (type === 'dark') {
+      ctx.strokeStyle = 'rgba(255,100,100,0.2)'; ctx.lineWidth = 1.5;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.arc(x, y, r * (0.5 + i * 0.2), Math.random() * Math.PI, Math.random() * Math.PI + Math.PI);
+        ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath(); ctx.arc(x + r * 0.15, y - r * 0.2, r * 0.35, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  if (lit) { ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1.5; ctx.stroke(); }
+
+  if (lit) {
+    ctx.beginPath();
+    ctx.arc(x - r * 0.25, y - r * 0.3, r * 0.15, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fill();
+  }
+}
+
+function drawOrbitSystem() {
+  const w = orbitCanvas.width / 2;
+  const h = orbitCanvas.height / 2;
+  const cx = w / 2;
+  const cy = h / 2;
+
+  orbitCtx.clearRect(0, 0, w, h);
+
+  const planet = getCurrentPlanet();
+  const nodes = getNodePositions(cx, cy, w, h);
+
+  const linkOrder = [0, 1, 3, 2, 4, 6, 7, 5];
+  for (let i = 0; i < linkOrder.length - 1; i++) {
+    const a = linkOrder[i];
+    const b = linkOrder[i + 1];
+    const litA = a < appData.nodeProgress;
+    const litB = b < appData.nodeProgress;
+
+    orbitCtx.beginPath();
+    orbitCtx.moveTo(nodes[a].x, nodes[a].y);
+    orbitCtx.lineTo(nodes[b].x, nodes[b].y);
+
+    if (litA && litB) {
+      orbitCtx.strokeStyle = planet.color + '45';
+      orbitCtx.lineWidth = 1.8;
+      orbitCtx.setLineDash([]);
+      orbitCtx.shadowColor = planet.color;
+      orbitCtx.shadowBlur = 6;
+    } else if (litA || litB) {
+      orbitCtx.strokeStyle = planet.color + '20';
+      orbitCtx.lineWidth = 1.2;
+      orbitCtx.setLineDash([3, 4]);
+      orbitCtx.shadowBlur = 0;
+    } else {
+      orbitCtx.strokeStyle = 'rgba(100,110,140,0.1)';
+      orbitCtx.lineWidth = 0.8;
+      orbitCtx.setLineDash([2, 5]);
+      orbitCtx.shadowBlur = 0;
+    }
+    orbitCtx.stroke();
+    orbitCtx.setLineDash([]);
+    orbitCtx.shadowBlur = 0;
+  }
+
+  const extraLinks = [[0, 3], [1, 4], [2, 5], [3, 6], [4, 7]];
+  extraLinks.forEach(([a, b]) => {
+    const litA = a < appData.nodeProgress;
+    const litB = b < appData.nodeProgress;
+    if (litA && litB) {
+      orbitCtx.beginPath();
+      orbitCtx.moveTo(nodes[a].x, nodes[a].y);
+      orbitCtx.lineTo(nodes[b].x, nodes[b].y);
+      orbitCtx.strokeStyle = planet.color + '18';
+      orbitCtx.lineWidth = 0.8;
+      orbitCtx.setLineDash([2, 6]);
+      orbitCtx.stroke();
+      orbitCtx.setLineDash([]);
+    }
+  });
+
+  nodes.forEach((node, i) => {
+    const lit = i < appData.nodeProgress;
+    drawPlanetNode(orbitCtx, node.x, node.y, node.size * 6, lit, planet, i);
+  });
+
+  const centerRadius = 26;
+  const centerGlow = orbitCtx.createRadialGradient(cx, cy, centerRadius * 0.4, cx, cy, centerRadius * 3.5);
+  centerGlow.addColorStop(0, planet.color + '35');
+  centerGlow.addColorStop(1, 'transparent');
+  orbitCtx.fillStyle = centerGlow;
+  orbitCtx.beginPath(); orbitCtx.arc(cx, cy, centerRadius * 3.5, 0, Math.PI * 2); orbitCtx.fill();
+
+  const centerGrad = orbitCtx.createRadialGradient(cx - centerRadius * 0.28, cy - centerRadius * 0.28, 0, cx, cy, centerRadius);
+  centerGrad.addColorStop(0, planet.color);
+  centerGrad.addColorStop(0.3, planet.color);
+  centerGrad.addColorStop(0.7, planet.secondary);
+  centerGrad.addColorStop(1, 'rgba(20,25,40,0.5)');
+  orbitCtx.beginPath(); orbitCtx.arc(cx, cy, centerRadius, 0, Math.PI * 2);
+  orbitCtx.fillStyle = centerGrad; orbitCtx.fill();
+
+  orbitCtx.save();
+  orbitCtx.beginPath(); orbitCtx.arc(cx, cy, centerRadius, 0, Math.PI * 2); orbitCtx.clip();
+  if (planet.type === 'crystal') {
+    for (let i = 0; i < 4; i++) {
+      orbitCtx.strokeStyle = 'rgba(255,255,255,0.1)'; orbitCtx.lineWidth = 1.2;
+      orbitCtx.beginPath();
+      orbitCtx.moveTo(cx - centerRadius + i * centerRadius * 0.55, cy - centerRadius);
+      orbitCtx.lineTo(cx + centerRadius * 0.2, cy + centerRadius); orbitCtx.stroke();
+    }
+  } else if (planet.type === 'gas') {
+    for (let i = -1; i <= 1; i++) {
+      orbitCtx.strokeStyle = 'rgba(255,255,255,0.08)'; orbitCtx.lineWidth = 2;
+      orbitCtx.beginPath();
+      orbitCtx.ellipse(cx, cy + i * centerRadius * 0.25, centerRadius * 0.9, centerRadius * 0.12, 0, 0, Math.PI * 2);
+      orbitCtx.stroke();
+    }
+  }
+  orbitCtx.restore();
+
+  orbitCtx.beginPath();
+  orbitCtx.arc(cx, cy, centerRadius, -Math.PI * 0.75, -Math.PI * 0.15);
+  orbitCtx.strokeStyle = 'rgba(255,255,255,0.2)'; orbitCtx.lineWidth = 2; orbitCtx.stroke();
+  orbitCtx.beginPath();
+  orbitCtx.arc(cx - centerRadius * 0.25, cy - centerRadius * 0.3, centerRadius * 0.15, 0, Math.PI * 2);
+  orbitCtx.fillStyle = 'rgba(255,255,255,0.3)'; orbitCtx.fill();
+}
+
+// ==================== 计时器逻辑（重写 - 状态机）====================
+// 状态定义：
+// - mode: 'focus' | 'short' | 'long'
+// - isRunning: boolean
+// - timeLeft: number (秒，始终 >= 0)
+// - completedInThisSession: boolean (当前计时周期是否已完成，防止重复触发)
+// - sessionFocusCount: number (本次连续专注次数，用于判断长休息)
+
+let timerState = {
+  mode: 'focus',
+  isRunning: false,
+  timeLeft: 25 * 60,
+  interval: null,
+  completedInThisSession: false,
+  sessionFocusCount: 0
+};
+
+const MODES = {
+  focus: { time: 25, label: '专注' },
+  short: { time: 5, label: '短休息' },
+  long: { time: 15, label: '长休息' }
+};
+
+function formatTime(seconds) {
+  const safe = Math.max(0, Math.floor(seconds));
+  const m = Math.floor(safe / 60);
+  const s = safe % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function updateTimerDisplay() {
+  const el = document.getElementById('timerDisplay');
+  if (el) el.textContent = formatTime(timerState.timeLeft);
+}
+
+function setTimerMode(mode) {
+  // 停止当前计时
+  clearInterval(timerState.interval);
+  timerState.interval = null;
+
+  // 设置新模式
+  timerState.mode = mode;
+  timerState.timeLeft = MODES[mode].time * 60;
+  timerState.isRunning = false;
+  timerState.completedInThisSession = false;
+
+  updateTimerDisplay();
+  updateStartBtn();
+
+  // 更新UI标签
+  document.querySelectorAll('.timer-mode-tabs button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+}
+
+function updateStartBtn() {
+  const btn = document.getElementById('startBtn');
+  if (btn) btn.textContent = timerState.isRunning ? '暂停' : '开始';
+}
+
+// 专注完成后的处理
+function onFocusComplete() {
+  // 标记已完成，防止重复触发
+  if (timerState.completedInThisSession) return;
+  timerState.completedInThisSession = true;
+
+  const minutes = MODES.focus.time;
+  appData.todayMin += minutes;
+  appData.totalMin += minutes;
+  appData.nodeProgress++;
+
+  let planetUnlocked = false;
+  if (appData.nodeProgress >= 8) {
+    showPlanetUnlockModal(appData.planetIndex);
+    appData.planetIndex++;
+    appData.nodeProgress = 0;
+    planetUnlocked = true;
+  }
+
+  saveData(appData);
+  updateStats();
+  drawOrbitSystem();
+  updatePlanetLabel();
+
+  // 增加连续专注计数
+  timerState.sessionFocusCount++;
+
+  // 自动切换到休息模式
+  // 每4个专注后进入长休息，否则短休息
+  const nextMode = (timerState.sessionFocusCount % 4 === 0) ? 'long' : 'short';
+
+  // 延迟一下再切换，让用户看到完成
+  setTimeout(() => {
+    setTimerMode(nextMode);
+    // 只切换模式，不自动开始休息，等待用户点击"开始"
+  }, 1500);
+}
+
+// 休息完成后的处理
+function onBreakComplete() {
+  if (timerState.completedInThisSession) return;
+  timerState.completedInThisSession = true;
+
+  // 休息结束后自动切回专注
+  setTimeout(() => {
+    setTimerMode('focus');
+  }, 1000);
+}
+
+// 计时完成统一处理
+function onTimerComplete() {
+  clearInterval(timerState.interval);
+  timerState.interval = null;
+  timerState.isRunning = false;
+  timerState.timeLeft = 0;
+  updateTimerDisplay();
+  updateStartBtn();
+
+  if (timerState.mode === 'focus') {
+    onFocusComplete();
+  } else {
+    onBreakComplete();
+  }
+}
+
+// 开始/暂停计时
+function startTimer() {
+  if (timerState.isRunning) return;
+
+  // 如果当前周期已完成，重置时间再开始
+  if (timerState.completedInThisSession || timerState.timeLeft <= 0) {
+    timerState.timeLeft = MODES[timerState.mode].time * 60;
+    timerState.completedInThisSession = false;
+  }
+
+  timerState.isRunning = true;
+  updateStartBtn();
+
+  timerState.interval = setInterval(() => {
+    timerState.timeLeft--;
+    updateTimerDisplay();
+
+    if (timerState.timeLeft <= 0) {
+      onTimerComplete();
+    }
+  }, 1000);
+}
+
+function pauseTimer() {
+  if (!timerState.isRunning) return;
+  clearInterval(timerState.interval);
+  timerState.interval = null;
+  timerState.isRunning = false;
+  updateStartBtn();
+}
+
+// 开始/暂停按钮
+ document.getElementById('startBtn').addEventListener('click', () => {
+  if (timerState.isRunning) {
+    pauseTimer();
+  } else {
+    startTimer();
+  }
+});
+
+// 重置按钮
+document.getElementById('resetBtn').addEventListener('click', () => {
+  clearInterval(timerState.interval);
+  timerState.interval = null;
+  timerState.isRunning = false;
+  timerState.timeLeft = MODES[timerState.mode].time * 60;
+  timerState.completedInThisSession = false;
+  updateTimerDisplay();
+  updateStartBtn();
+});
+
+// 模式切换按钮
+document.querySelectorAll('.timer-mode-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => setTimerMode(btn.dataset.mode));
+});
+
+// 设置
+const settingsPanel = document.getElementById('settingsPanel');
+document.getElementById('settingsToggle').addEventListener('click', () => {
+  settingsPanel.classList.toggle('open');
+});
+function applySettings() {
+  MODES.focus.time = parseInt(document.getElementById('focusTime').value) || 25;
+  MODES.short.time = parseInt(document.getElementById('shortTime').value) || 5;
+  MODES.long.time = parseInt(document.getElementById('longTime').value) || 15;
+  if (!timerState.isRunning) {
+    timerState.timeLeft = MODES[timerState.mode].time * 60;
+    timerState.completedInThisSession = false;
+    updateTimerDisplay();
+  }
+}
+['focusTime', 'shortTime', 'longTime'].forEach(id => {
+  document.getElementById(id).addEventListener('change', applySettings);
+});
+
+// ==================== 任务标签 ====================
+const taskInput = document.getElementById('taskInput');
+const taskLabel = document.getElementById('taskLabel');
+taskInput.addEventListener('input', () => {
+  const val = taskInput.value.trim();
+  if (val) {
+    taskLabel.textContent = '▸ ' + val;
+    taskLabel.classList.add('visible');
+  } else {
+    taskLabel.classList.remove('visible');
+  }
+});
+
+// ==================== 星球解锁弹窗 ====================
+function drawPlanetLarge(ctx, cx, cy, radius, planet) {
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const glow = ctx.createRadialGradient(cx, cy, radius * 0.4, cx, cy, radius * 2.5);
+  glow.addColorStop(0, planet.color + '45'); glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx, cy, radius * 2.5, 0, Math.PI * 2); ctx.fill();
+
+  const grad = ctx.createRadialGradient(cx - radius * 0.28, cy - radius * 0.28, 0, cx, cy, radius);
+  grad.addColorStop(0, planet.color);
+  grad.addColorStop(0.3, planet.color);
+  grad.addColorStop(0.65, planet.secondary);
+  grad.addColorStop(1, 'rgba(20,25,40,0.5)');
+  ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.fillStyle = grad; ctx.fill();
+
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.clip();
+
+  if (planet.type === 'crystal') {
+    for (let i = 0; i < 5; i++) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx - radius + i * radius * 0.45, cy - radius * 0.5);
+      ctx.lineTo(cx + radius * 0.3, cy + radius * 0.6); ctx.stroke();
+    }
+  } else if (planet.type === 'lava') {
+    ctx.strokeStyle = 'rgba(255,200,60,0.45)'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - radius * 0.5, cy + radius * 0.3);
+    ctx.quadraticCurveTo(cx, cy - radius * 0.4, cx + radius * 0.4, cy + radius * 0.2); ctx.stroke();
+  } else if (planet.type === 'ice') {
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.beginPath(); ctx.ellipse(cx, cy - radius * 0.3, radius * 0.7, radius * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+  } else if (planet.type === 'gas') {
+    for (let i = -2; i <= 2; i++) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + i * radius * 0.2, radius * 0.9, radius * 0.12, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,150,150,0.2)';
+    ctx.beginPath(); ctx.ellipse(cx + radius * 0.2, cy - radius * 0.1, radius * 0.22, radius * 0.13, 0, 0, Math.PI * 2); ctx.fill();
+  } else if (planet.type === 'ocean') {
+    ctx.fillStyle = 'rgba(100,180,140,0.25)';
+    ctx.beginPath(); ctx.ellipse(cx - radius * 0.2, cy - radius * 0.1, radius * 0.5, radius * 0.35, 0.2, 0, Math.PI * 2); ctx.fill();
+  } else if (planet.type === 'dead') {
+    for (let i = 0; i < 6; i++) {
+      const cx2 = cx + (Math.random() - 0.5) * radius * 1.4;
+      const cy2 = cy + (Math.random() - 0.5) * radius * 1.4;
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.beginPath(); ctx.arc(cx2, cy2, radius * 0.08 + Math.random() * radius * 0.12, 0, Math.PI * 2); ctx.fill();
+    }
+  } else if (planet.type === 'forest') {
+    ctx.fillStyle = 'rgba(30,160,80,0.25)';
+    ctx.beginPath(); ctx.ellipse(cx - radius * 0.1, cy - radius * 0.1, radius * 0.5, radius * 0.35, 0.3, 0, Math.PI * 2); ctx.fill();
+  } else if (planet.type === 'dark') {
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath(); ctx.arc(cx + radius * 0.15, cy - radius * 0.2, radius * 0.35, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+
+  if (planet.ring) {
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, radius * 1.8, radius * 0.35, 0.15 * Math.PI, 0, Math.PI * 2);
+    ctx.strokeStyle = planet.color + '40'; ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, -Math.PI * 0.75, -Math.PI * 0.15);
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx - radius * 0.25, cy - radius * 0.3, radius * 0.12, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fill();
+}
+
+function showPlanetUnlockModal(planetIndex) {
+  const allPlanets = getAllPlanets();
+  const planet = allPlanets[planetIndex % allPlanets.length];
+  const modal = document.getElementById('planetModal');
+  document.getElementById('modalPlanetName').textContent = planet.name + ' 已解锁';
+  document.getElementById('modalPlanetDesc').textContent = planet.desc;
+  const canvas = document.getElementById('modalPlanetCanvas');
+  const ctx = canvas.getContext('2d');
+  drawPlanetLarge(ctx, 120, 120, 80, planet);
+  modal.classList.add('active');
+}
+
+document.getElementById('modalClose').addEventListener('click', () => {
+  document.getElementById('planetModal').classList.remove('active');
+});
+
+// ==================== 统计 ====================
+function updateStats() {
+  document.getElementById('todayMin').textContent = appData.todayMin;
+  document.getElementById('totalMin').textContent = appData.totalMin;
+  document.getElementById('litCount').textContent = Math.max(0, appData.nodeProgress);
+}
+function updatePlanetLabel() {
+  const planet = getCurrentPlanet();
+  document.getElementById('currentPlanetName').textContent = planet.name;
+}
+
+// ==================== 星图弹窗（分阶段）====================
+let galaxyViewPhase = 0; // 当前星图查看的阶段
+
+function buildGalaxyPhaseTabs() {
+  const tabsContainer = document.getElementById('galaxyPhaseTabs');
+  tabsContainer.innerHTML = '';
+
+  GALAXY_PHASES.forEach((phase, idx) => {
+    const tab = document.createElement('button');
+    tab.className = 'galaxy-phase-tab';
+    tab.textContent = phase.name;
+
+    const unlocked = isPhaseUnlocked(idx);
+    const completed = isPhaseCompleted(idx);
+
+    if (!unlocked) {
+      tab.classList.add('locked');
+      tab.textContent += ' 🔒';
+    } else if (completed) {
+      tab.textContent += ' ✓';
+    }
+
+    if (idx === galaxyViewPhase) {
+      tab.classList.add('active');
+    }
+
+    if (unlocked) {
+      tab.addEventListener('click', () => {
+        galaxyViewPhase = idx;
+        buildGalaxyPhaseTabs();
+        buildGalaxyGrid();
+      });
+    }
+
+    tabsContainer.appendChild(tab);
+  });
+}
+
+function buildGalaxyGrid() {
+  const grid = document.getElementById('galaxyGrid');
+  grid.innerHTML = '';
+
+  const phase = GALAXY_PHASES[galaxyViewPhase];
+  const phaseUnlocked = isPhaseUnlocked(galaxyViewPhase);
+  const phaseCompleted = isPhaseCompleted(galaxyViewPhase);
+
+  // 计算该阶段在全局的偏移
+  let globalOffset = 0;
+  for (let i = 0; i < galaxyViewPhase; i++) {
+    globalOffset += GALAXY_PHASES[i].planets.length;
+  }
+
+  // 阶段信息
+  const infoEl = document.getElementById('galaxyPhaseInfo');
+  const currentGlobalIdx = appData.planetIndex;
+  const isCurrentPhase = (currentGlobalIdx >= globalOffset && currentGlobalIdx < globalOffset + phase.planets.length);
+
+  if (phaseCompleted) {
+    infoEl.textContent = '本阶段已完成';
+  } else if (isCurrentPhase) {
+    const planetIdxInPhase = currentGlobalIdx - globalOffset;
+    infoEl.textContent = `当前：${phase.planets[planetIdxInPhase].name} (${appData.nodeProgress}/8)`;
+  } else if (phaseUnlocked) {
+    infoEl.textContent = '点击星球查看详情';
+  } else {
+    infoEl.textContent = '完成前一阶段后解锁';
+  }
+
+  // 阶段完成横幅
+  const banner = document.getElementById('phaseCompleteBanner');
+  if (phaseCompleted && galaxyViewPhase < GALAXY_PHASES.length - 1) {
+    banner.classList.add('show');
+    banner.textContent = `🎉 ${phase.name} 已完成！进入下一阶段继续探索`;
+  } else {
+    banner.classList.remove('show');
+  }
+
+  // 构建星球卡片
+  phase.planets.forEach((planet, i) => {
+    const globalIdx = globalOffset + i;
+    const card = document.createElement('div');
+    card.className = 'galaxy-planet-card';
+
+    const isLocked = globalIdx > appData.planetIndex;
+    const isCompleted = globalIdx < appData.planetIndex;
+    const isCurrent = globalIdx === appData.planetIndex;
+
+    if (isLocked) {
+      card.classList.add('locked');
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 100; canvas.height = 100;
+    canvas.style.width = '60px';
+    canvas.style.height = '60px';
+
+    const ctx = canvas.getContext('2d');
+    drawPlanetLarge(ctx, 50, 50, 30, planet);
+
+    const name = document.createElement('div');
+    name.className = 'gp-name';
+    name.textContent = planet.name;
+
+    const status = document.createElement('div');
+    status.className = 'gp-status';
+    if (isCompleted) {
+      status.textContent = '✓';
+    } else if (isCurrent) {
+      status.textContent = appData.nodeProgress + '/8';
+    } else {
+      status.textContent = '🔒';
+    }
+
+    card.appendChild(canvas);
+    card.appendChild(name);
+    card.appendChild(status);
+
+    if (!isLocked) {
+      card.addEventListener('click', () => {
+        const statusText = isCompleted ? '状态：已完全解锁' : `进度：${appData.nodeProgress}/8`;
+        alert(planet.name + '\n\n' + planet.desc + '\n\n' + statusText);
+      });
+    }
+
+    grid.appendChild(card);
+  });
+}
+
+document.getElementById('galaxyBtn').addEventListener('click', () => {
+  // 默认显示当前阶段
+  galaxyViewPhase = getCurrentPhaseIndex();
+  buildGalaxyPhaseTabs();
+  buildGalaxyGrid();
+  document.getElementById('galaxyModal').classList.add('active');
+});
+
+// 返回按钮
+document.getElementById('galaxyBackBtn').addEventListener('click', () => {
+  document.getElementById('galaxyModal').classList.remove('active');
+});
+
+// ==================== 初始化 ====================
+updateTimerDisplay();
+updateStats();
+updatePlanetLabel();
+drawOrbitSystem();
+function animate() { drawOrbitSystem(); requestAnimationFrame(animate); }
+animate();
+</script>
+</body>
+</html>
